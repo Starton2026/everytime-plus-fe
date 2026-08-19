@@ -1,7 +1,11 @@
-/** 공통 에러 응답 형식 — { "message": "에러 메시지", "status": 400 } */
-export interface ApiErrorResponse {
-  message: string;
-  status: number;
+/**
+ * 백엔드(FastAPI) 공통 에러 형식.
+ *
+ * - 대부분: { "detail": "에러 메시지" }
+ * - 422(스키마 검증 실패): { "detail": [{ "loc": [...], "msg": "...", "type": "..." }] }
+ */
+export interface ApiErrorDetailItem {
+  msg?: string;
 }
 
 export class ApiError extends Error {
@@ -25,4 +29,8 @@ export function toErrorMessage(error: unknown): string {
 
 export function isUnauthorized(error: unknown): boolean {
   return error instanceof ApiError && error.status === 401;
+}
+
+export function isForbidden(error: unknown): boolean {
+  return error instanceof ApiError && error.status === 403;
 }
