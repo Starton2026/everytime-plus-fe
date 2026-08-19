@@ -288,6 +288,9 @@ import { Button } from '@/shared/components/Button'
 
 ### 환경 변수
 
+기본 주소는 **배포된 백엔드**(`https://everytime-plus-be.onrender.com`)입니다.
+클론 직후 별 설정 없이 화면이 동작하고, 로컬 백엔드로 붙일 때만 값을 바꾸면 됩니다.
+
 | 파일 | 용도 | 커밋 |
 | --- | --- | --- |
 | `.env.example` | 필요한 키를 적어둔 템플릿 | O |
@@ -295,12 +298,13 @@ import { Button } from '@/shared/components/Button'
 
 | 변수 | 설명 |
 | --- | --- |
-| `VITE_API_BASE_URL` | 백엔드 API 주소. 끝에 `/`를 붙이지 않습니다. `.env.example`의 기본값은 배포된 백엔드이고, 환경 변수를 아예 지정하지 않으면 `http://localhost:8000`을 씁니다 |
+| `VITE_API_BASE_URL` | 백엔드 API 주소. 끝에 `/`를 붙이지 않습니다. 지정하지 않으면 배포된 백엔드(`https://everytime-plus-be.onrender.com`)를 씁니다 |
 
 ### CORS
 
 백엔드는 `localhost`와 `127.0.0.1`의 3000 · 5173 포트를 허용합니다.
-다른 주소로 띄우면 백엔드 `main.py`의 `allow_origins`에 그 주소를 추가해야 요청이 통과합니다.
+로컬 개발 서버에서 배포된 백엔드를 호출하는 건 이미 허용되어 있습니다.
+**프론트를 배포하면** 백엔드 `main.py`의 `allow_origins`에 그 주소를 추가해야 요청이 통과합니다.
 
 ---
 
@@ -383,10 +387,12 @@ SPA이므로 모든 경로를 `index.html`로 돌려주는 rewrite 설정이 필
 (Vercel `rewrites`, Netlify `_redirects`, Nginx `try_files`)
 설정하지 않으면 `/boards/1/posts/3` 같은 주소로 직접 접속했을 때 404가 납니다.
 
-배포 환경에서는 두 가지를 함께 맞춰야 합니다.
+API 주소 기본값이 이미 배포된 백엔드라 따로 지정하지 않아도 됩니다.
+대신 **백엔드 `main.py`의 CORS `allow_origins`에 프론트 배포 주소를 추가**해야 합니다.
+추가하지 않으면 배포된 화면에서 모든 요청이 CORS로 막힙니다.
 
-1. `VITE_API_BASE_URL`을 배포된 백엔드 주소로 지정
-2. 백엔드 `main.py`의 CORS `allow_origins`에 프론트 배포 주소 추가
+> 백엔드는 Render 무료 플랜에 올라가 있어, 일정 시간 요청이 없으면 잠들었다가
+> 다음 첫 요청에서 수십 초 걸릴 수 있습니다. 발표·시연 전에 한 번 열어두면 좋습니다.
 
 ---
 
