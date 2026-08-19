@@ -20,7 +20,7 @@ export function PostCard({ post, keyword }: PostCardProps) {
   return (
     <li>
       <Link
-        to={ROUTES.postDetail(post.id)}
+        to={ROUTES.postDetail(post.boardId, post.id)}
         className="block border-b border-line bg-surface px-4 py-4 transition-colors hover:bg-surface-muted sm:px-5"
       >
         <h2 className="text-[15px] font-bold leading-snug text-ink-900">

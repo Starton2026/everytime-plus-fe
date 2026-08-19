@@ -1,14 +1,4 @@
-import { commit, getDb, nextId } from "@/mocks/db";
-import { delay } from "@/mocks/lib/delay";
-import {
-  applyReaction,
-  buildPreview,
-  resolveAuthorName,
-  summarizeReactions,
-} from "@/mocks/lib/serialize";
-import { getCurrentUser, requireCurrentUser } from "@/mocks/session";
-import type { MockPost } from "@/mocks/types";
-import { ApiError } from "@/shared/api/apiError";
+import { http } from "@/shared/api/httpClient";
 import type {
   CreatePostRequest,
   PostDetail,
@@ -21,180 +11,176 @@ import type { ReactionResponse, ReactionType } from "@/shared/types/reaction";
 
 const DEFAULT_PAGE_SIZE = 10;
 
-function findPostOrThrow(postId: number): MockPost {
-  const post = getDb().posts.find((candidate) => candidate.id === postId);
-  if (!post) {
-    throw new ApiError("게시글을 찾을 수 없습니다", 404);
-  }
-  return post;
+type ServerReaction = "like" | "dislike";
+
+interface PostListItemApiResponse {
+  id: number;
+  board_id: number;
+  title: string;
+  content_preview: string;
+  tags: string[];
+  like_count: number;
+  dislike_count: number;
+  comment_count: number;
+  author_nickname: string;
+  is_anonymous: boolean;
+  created_at: string;
+  is_mine: boolean;
+  my_reaction: ServerReaction | null;
 }
 
-function toSummary(post: MockPost, search: string | undefined): PostSummary {
-  const db = getDb();
-  const currentUser = getCurrentUser();
-  const reactions = summarizeReactions(
-    db.postReactions,
-    post.id,
-    { like: post.baseLikeCount, dislike: post.baseDislikeCount },
-    currentUser?.id ?? null,
-  );
+interface PostDetailApiResponse extends Omit<PostListItemApiResponse, "content_preview"> {
+  content: string;
+}
 
+interface PageApiResponse<T> {
+  items: T[];
+  page: number;
+  size: number;
+  total_pages: number;
+  total_elements: number;
+}
+
+interface ReactionApiResponse {
+  like_count: number;
+  dislike_count: number;
+  my_reaction: ServerReaction | null;
+}
+
+/** 프론트는 UI 일관성을 위해 대문자를 쓰고, 백엔드는 소문자를 받는다. */
+function toServerReactionType(type: ReactionType): ServerReaction {
+  return type === "LIKE" ? "like" : "dislike";
+}
+
+function toReactionType(value: ServerReaction | null): ReactionType | null {
+  if (value === null) return null;
+  return value === "like" ? "LIKE" : "DISLIKE";
+}
+
+function toReactionResponse(response: ReactionApiResponse): ReactionResponse {
   return {
-    id: post.id,
-    title: post.title,
-    preview: buildPreview(post.content, search),
-    tags: [...post.tags],
-    author: resolveAuthorName(post.authorId, post.isAnonymous),
-    isAnonymous: post.isAnonymous,
-    likeCount: reactions.likeCount,
-    dislikeCount: reactions.dislikeCount,
-    commentCount: db.comments.filter((comment) => comment.postId === post.id).length,
-    createdAt: post.createdAt,
-    isMine: currentUser?.id === post.authorId,
+    likeCount: response.like_count,
+    dislikeCount: response.dislike_count,
+    myReaction: toReactionType(response.my_reaction),
   };
 }
 
-function toDetail(post: MockPost): PostDetail {
-  const currentUser = getCurrentUser();
-  const reactions = summarizeReactions(
-    getDb().postReactions,
-    post.id,
-    { like: post.baseLikeCount, dislike: post.baseDislikeCount },
-    currentUser?.id ?? null,
-  );
-
+function toSummary(item: PostListItemApiResponse): PostSummary {
   return {
-    id: post.id,
-    boardId: post.boardId,
-    title: post.title,
-    content: post.content,
-    tags: [...post.tags],
-    author: resolveAuthorName(post.authorId, post.isAnonymous),
-    isAnonymous: post.isAnonymous,
-    likeCount: reactions.likeCount,
-    dislikeCount: reactions.dislikeCount,
-    isLiked: reactions.isLiked,
-    isDisliked: reactions.isDisliked,
-    createdAt: post.createdAt,
-    isMine: currentUser?.id === post.authorId,
+    id: item.id,
+    boardId: item.board_id,
+    title: item.title,
+    preview: item.content_preview,
+    tags: item.tags,
+    author: item.author_nickname,
+    isAnonymous: item.is_anonymous,
+    likeCount: item.like_count,
+    dislikeCount: item.dislike_count,
+    commentCount: item.comment_count,
+    createdAt: item.created_at,
+    isMine: item.is_mine,
   };
 }
 
-/** GET /posts?boardId=&search=&tags=&page=&size= */
+function toDetail(response: PostDetailApiResponse): PostDetail {
+  return {
+    id: response.id,
+    boardId: response.board_id,
+    title: response.title,
+    content: response.content,
+    tags: response.tags,
+    author: response.author_nickname,
+    isAnonymous: response.is_anonymous,
+    likeCount: response.like_count,
+    dislikeCount: response.dislike_count,
+    commentCount: response.comment_count,
+    isLiked: response.my_reaction === "like",
+    isDisliked: response.my_reaction === "dislike",
+    createdAt: response.created_at,
+    isMine: response.is_mine,
+  };
+}
+
+/**
+ * 게시글 목록 조회.
+ *
+ * 백엔드는 목록과 검색이 다른 엔드포인트지만 응답 형태(Page)는 같다.
+ * - 검색어·태그가 없으면 GET /boards/{boardId}/posts
+ * - 하나라도 있으면 GET /search?board_id=&keyword=&tags=
+ */
 export async function fetchPosts(
   params: PostListParams,
 ): Promise<PostListResponse> {
-  await delay();
-
   const page = params.page && params.page > 0 ? params.page : 1;
   const size = params.size && params.size > 0 ? params.size : DEFAULT_PAGE_SIZE;
-  const keyword = params.search?.trim().toLowerCase() ?? "";
+  const keyword = params.search?.trim() ?? "";
   const tags = params.tags ?? [];
 
-  const matched = getDb()
-    .posts.filter((post) => post.boardId === params.boardId)
-    // 검색 조건 AND 태그 조건을 동시에 적용한다.
-    .filter((post) => {
-      if (!keyword) return true;
-      return (
-        post.title.toLowerCase().includes(keyword) ||
-        post.content.toLowerCase().includes(keyword)
-      );
-    })
-    .filter((post) => {
-      if (tags.length === 0) return true;
-      return tags.every((tag) => post.tags.includes(tag));
-    })
-    .sort(
-      (a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime(),
-    );
+  const query = new URLSearchParams();
+  query.set("page", String(page));
+  query.set("size", String(size));
 
-  const totalPages = Math.max(1, Math.ceil(matched.length / size));
-  const safePage = Math.min(page, totalPages);
-  const start = (safePage - 1) * size;
+  let response: PageApiResponse<PostListItemApiResponse>;
+
+  if (keyword || tags.length > 0) {
+    query.set("board_id", String(params.boardId));
+    if (keyword) query.set("keyword", keyword);
+    // FastAPI의 list[str] 쿼리는 같은 키를 반복해서 넘긴다.
+    tags.forEach((tag) => query.append("tags", tag));
+
+    response = await http.get<PageApiResponse<PostListItemApiResponse>>(
+      "/search",
+      query,
+    );
+  } else {
+    response = await http.get<PageApiResponse<PostListItemApiResponse>>(
+      `/boards/${params.boardId}/posts`,
+      query,
+    );
+  }
 
   return {
-    content: matched
-      .slice(start, start + size)
-      .map((post) => toSummary(post, params.search)),
-    page: safePage,
-    totalPages,
-    totalElements: matched.length,
+    content: response.items.map(toSummary),
+    page: response.page,
+    totalPages: response.total_pages,
+    totalElements: response.total_elements,
   };
 }
 
 /** GET /posts/{postId} */
 export async function fetchPost(postId: number): Promise<PostDetail> {
-  await delay();
-  return toDetail(findPostOrThrow(postId));
+  const response = await http.get<PostDetailApiResponse>(`/posts/${postId}`);
+  return toDetail(response);
 }
 
 /** POST /posts */
 export async function createPost(body: CreatePostRequest): Promise<PostDetail> {
-  await delay();
-
-  const user = requireCurrentUser();
-  const db = getDb();
-
-  const created: MockPost = {
-    id: nextId("post"),
-    boardId: body.boardId,
-    authorId: user.id,
+  const response = await http.post<PostDetailApiResponse>("/posts", {
+    board_id: body.boardId,
     title: body.title,
     content: body.content,
-    tags: [...body.tags],
-    isAnonymous: body.isAnonymous,
-    createdAt: new Date().toISOString(),
-    baseLikeCount: 0,
-    baseDislikeCount: 0,
-  };
-
-  db.posts.push(created);
-  commit();
-
-  return toDetail(created);
+    tags: body.tags,
+    is_anonymous: body.isAnonymous,
+  });
+  return toDetail(response);
 }
 
-/** PUT /posts/{postId} */
+/** PUT /posts/{postId} — isAnonymous는 수정할 수 없다 */
 export async function updatePost(
   postId: number,
   body: UpdatePostRequest,
 ): Promise<PostDetail> {
-  await delay();
-
-  const user = requireCurrentUser();
-  const post = findPostOrThrow(postId);
-
-  if (post.authorId !== user.id) {
-    throw new ApiError("작성자만 수정할 수 있습니다", 403);
-  }
-
-  post.title = body.title;
-  post.content = body.content;
-  post.tags = [...body.tags];
-  commit();
-
-  return toDetail(post);
+  const response = await http.put<PostDetailApiResponse>(`/posts/${postId}`, {
+    title: body.title,
+    content: body.content,
+    tags: body.tags,
+  });
+  return toDetail(response);
 }
 
 /** DELETE /posts/{postId} */
 export async function deletePost(postId: number): Promise<void> {
-  await delay();
-
-  const user = requireCurrentUser();
-  const post = findPostOrThrow(postId);
-
-  if (post.authorId !== user.id) {
-    throw new ApiError("작성자만 삭제할 수 있습니다", 403);
-  }
-
-  const db = getDb();
-  db.posts = db.posts.filter((candidate) => candidate.id !== postId);
-  db.comments = db.comments.filter((comment) => comment.postId !== postId);
-  db.postReactions = db.postReactions.filter(
-    (reaction) => reaction.targetId !== postId,
-  );
-  commit();
+  await http.delete<unknown>(`/posts/${postId}`);
 }
 
 /** POST /posts/{postId}/reaction */
@@ -202,25 +188,9 @@ export async function reactToPost(
   postId: number,
   type: ReactionType,
 ): Promise<ReactionResponse> {
-  await delay(120);
-
-  const user = requireCurrentUser();
-  const post = findPostOrThrow(postId);
-  const db = getDb();
-
-  applyReaction(db.postReactions, postId, user.id, type);
-  commit();
-
-  const reactions = summarizeReactions(
-    db.postReactions,
-    post.id,
-    { like: post.baseLikeCount, dislike: post.baseDislikeCount },
-    user.id,
+  const response = await http.post<ReactionApiResponse>(
+    `/posts/${postId}/reaction`,
+    { type: toServerReactionType(type) },
   );
-
-  return {
-    likeCount: reactions.likeCount,
-    dislikeCount: reactions.dislikeCount,
-    myReaction: reactions.myReaction,
-  };
+  return toReactionResponse(response);
 }

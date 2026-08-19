@@ -9,11 +9,7 @@ import {
   fetchComments,
   reactToComment,
 } from "@/features/comment/api/commentApi";
-import {
-  deletePost,
-  fetchPost,
-  reactToPost,
-} from "@/features/post/api/postApi";
+import { deletePost, fetchPost, reactToPost } from "@/features/post/api/postApi";
 import { Button } from "@/shared/components/Button";
 import { ConfirmDialog } from "@/shared/components/ConfirmDialog";
 import { EmptyState } from "@/shared/components/EmptyState";
@@ -30,7 +26,11 @@ import type { PostDetail } from "@/shared/types/post";
 import type { ReactionType } from "@/shared/types/reaction";
 
 export function PostDetailPage() {
-  const { postId: postIdParam } = useParams<{ postId: string }>();
+  const { boardId: boardIdParam, postId: postIdParam } = useParams<{
+    boardId: string;
+    postId: string;
+  }>();
+  const boardId = Number(boardIdParam);
   const postId = Number(postIdParam);
 
   const navigate = useNavigate();
@@ -50,7 +50,7 @@ export function PostDetailPage() {
   const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
-    if (!Number.isInteger(postId)) {
+    if (!Number.isInteger(postId) || !Number.isInteger(boardId)) {
       setNotFound(true);
       setLoading(false);
       return;
@@ -81,15 +81,18 @@ export function PostDetailPage() {
     return () => {
       cancelled = true;
     };
-  }, [postId, handleError]);
+  }, [boardId, postId, handleError]);
+
+  // 이동 기준은 URL 파라미터가 아니라 응답의 board_id다.
+  // 주소를 손으로 고쳐 다른 게시판 번호로 들어와도 실제 게시판으로 돌아가게 된다.
+  const postBoardId = post?.boardId ?? boardId;
 
   const goToTag = useCallback(
     (tag: string) => {
-      if (!post) return;
       const params = new URLSearchParams({ [LIST_QUERY_KEYS.tags]: tag });
-      navigate(`${ROUTES.postList(post.boardId)}?${params.toString()}`);
+      navigate(`${ROUTES.postList(postBoardId)}?${params.toString()}`);
     },
-    [navigate, post],
+    [navigate, postBoardId],
   );
 
   const handlePostReaction = async (type: ReactionType) => {
@@ -160,11 +163,11 @@ export function PostDetailPage() {
       if (deleteTarget === "post") {
         await deletePost(post.id);
         showToast("게시글을 삭제했어요", "success");
-        navigate(ROUTES.postList(post.boardId), { replace: true });
+        navigate(ROUTES.postList(postBoardId), { replace: true });
         return;
       }
 
-      await deleteComment(deleteTarget);
+      await deleteComment(post.id, deleteTarget);
       setComments((current) =>
         current.filter((comment) => comment.id !== deleteTarget),
       );
@@ -247,7 +250,7 @@ export function PostDetailPage() {
               <Button
                 variant="secondary"
                 size="sm"
-                onClick={() => navigate(ROUTES.postEdit(post.id))}
+                onClick={() => navigate(ROUTES.postEdit(post.boardId, post.id))}
               >
                 <PencilIcon className="size-3.5" />
                 수정

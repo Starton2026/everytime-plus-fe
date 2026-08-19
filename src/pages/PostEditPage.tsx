@@ -14,7 +14,11 @@ import { useToast } from "@/shared/hooks/useToast";
 import type { PostDetail } from "@/shared/types/post";
 
 export function PostEditPage() {
-  const { postId: postIdParam } = useParams<{ postId: string }>();
+  const { boardId: boardIdParam, postId: postIdParam } = useParams<{
+    boardId: string;
+    postId: string;
+  }>();
+  const boardId = Number(boardIdParam);
   const postId = Number(postIdParam);
 
   const navigate = useNavigate();
@@ -28,7 +32,7 @@ export function PostEditPage() {
   const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    if (!Number.isInteger(postId)) {
+    if (!Number.isInteger(postId) || !Number.isInteger(boardId)) {
       setBlocked("게시글을 찾을 수 없어요");
       setLoading(false);
       return;
@@ -60,7 +64,7 @@ export function PostEditPage() {
     return () => {
       cancelled = true;
     };
-  }, [postId, handleError]);
+  }, [boardId, postId, handleError]);
 
   if (loading) return <LoadingBlock />;
 
@@ -87,7 +91,7 @@ export function PostEditPage() {
         tags: values.tags,
       });
       showToast("게시글을 수정했어요", "success");
-      navigate(ROUTES.postDetail(post.id), { replace: true });
+      navigate(ROUTES.postDetail(post.boardId, post.id), { replace: true });
     } catch (caught) {
       handleError(caught);
     } finally {
@@ -97,7 +101,7 @@ export function PostEditPage() {
 
   return (
     <div>
-      <PageHeader title="글 수정" backTo={ROUTES.postDetail(post.id)} />
+      <PageHeader title="글 수정" backTo={ROUTES.postDetail(post.boardId, post.id)} />
 
       <PostForm
         mode="edit"
@@ -110,7 +114,7 @@ export function PostEditPage() {
         }}
         submitting={submitting}
         onSubmit={handleSubmit}
-        onCancel={() => navigate(ROUTES.postDetail(post.id))}
+        onCancel={() => navigate(ROUTES.postDetail(post.boardId, post.id))}
       />
     </div>
   );

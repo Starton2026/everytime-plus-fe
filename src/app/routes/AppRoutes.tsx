@@ -22,8 +22,14 @@ export function AppRoutes() {
           <Route path={ROUTES.boardList} element={<BoardListPage />} />
           <Route path="/boards/:boardId/posts" element={<PostListPage />} />
           <Route path="/boards/:boardId/posts/new" element={<PostWritePage />} />
-          <Route path="/posts/:postId" element={<PostDetailPage />} />
-          <Route path="/posts/:postId/edit" element={<PostEditPage />} />
+          <Route
+            path="/boards/:boardId/posts/:postId"
+            element={<PostDetailPage />}
+          />
+          <Route
+            path="/boards/:boardId/posts/:postId/edit"
+            element={<PostEditPage />}
+          />
         </Route>
       </Route>
 
