@@ -1,5 +1,6 @@
 export interface User {
   id: number;
+  username: string;
   nickname: string;
 }
 
@@ -14,7 +15,8 @@ export interface SignupRequest {
   password: string;
 }
 
+/** POST /auth/login, POST /auth/signup 응답 (백엔드는 access_token + nickname만 준다) */
 export interface AuthResponse {
   accessToken: string;
-  user: User;
+  nickname: string;
 }

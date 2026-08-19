@@ -2,12 +2,21 @@ const MINUTE = 60 * 1000;
 const HOUR = 60 * MINUTE;
 const DAY = 24 * HOUR;
 
+const HAS_TIME = /\d{2}:\d{2}/;
+const HAS_TIMEZONE = /(Z|[+-]\d{2}:?\d{2})$/;
+
 /**
- * API의 createdAt은 "2026-08-10" 또는 ISO datetime 두 형식 모두 올 수 있다.
- * (docs/api-spec.md 부록 참고)
+ * 백엔드는 created_at을 datetime.utcnow()로 저장하고 타임존 없이 내려준다.
+ * ("2026-08-19T04:12:33")
+ *
+ * 이런 문자열을 그대로 new Date()에 넣으면 브라우저가 로컬 시간으로 해석해서
+ * 한국 기준 9시간 어긋난다. 시간 정보가 있는데 타임존이 없으면 UTC로 간주한다.
  */
 function parse(value: string): Date | null {
-  const date = new Date(value);
+  const normalized =
+    HAS_TIME.test(value) && !HAS_TIMEZONE.test(value) ? `${value}Z` : value;
+
+  const date = new Date(normalized);
   return Number.isNaN(date.getTime()) ? null : date;
 }
 

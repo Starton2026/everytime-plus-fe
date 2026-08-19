@@ -1,11 +1,7 @@
-/**
- * 게시글 리스트 아이템 (GET /posts)
- *
- * `commentCount`, `totalElements`, `isMine`은 명세에 없지만 화면 구현에 필요해
- * 추가로 요청한 필드다. 자세한 이유는 docs/api-spec.md 부록 참고.
- */
+/** 게시글 리스트 아이템 (GET /boards/{boardId}/posts, GET /search) */
 export interface PostSummary {
   id: number;
+  boardId: number;
   title: string;
   preview: string;
   tags: string[];
@@ -29,6 +25,7 @@ export interface PostDetail {
   isAnonymous: boolean;
   likeCount: number;
   dislikeCount: number;
+  commentCount: number;
   isLiked: boolean;
   isDisliked: boolean;
   createdAt: string;
@@ -43,6 +40,7 @@ export interface PostListParams {
   size?: number;
 }
 
+/** 서버의 Page 응답을 그대로 옮긴 형태 */
 export interface PostListResponse {
   content: PostSummary[];
   page: number;
