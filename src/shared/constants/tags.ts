@@ -4,8 +4,11 @@ export interface TagGroup {
 }
 
 /**
- * GET /tags는 태그를 평평한 배열로 내려준다.
- * 선택 UI에서 찾기 쉽도록 프론트에서 분류만 해둔다.
+ * 선택 가능한 태그 목록.
+ *
+ * 백엔드에는 태그 목록 조회 API가 없고, 게시글 작성 시 받은 태그 이름을
+ * Tag 테이블에 없으면 새로 만들어 연결하는 구조다.
+ * 그래서 선택 UI에 노출할 태그는 프론트 상수로 관리한다.
  */
 const TAG_GROUPS: TagGroup[] = [
   {
@@ -22,7 +25,10 @@ const TAG_GROUPS: TagGroup[] = [
   },
 ];
 
-/** 서버에서 받은 태그 목록을 그룹에 배치한다. 미분류 태그는 "기타"로 묶는다. */
+/** 선택 UI에 노출할 전체 태그 (그룹 순서대로 평평하게 편 목록) */
+export const ALL_TAGS: string[] = TAG_GROUPS.flatMap((group) => group.tags);
+
+/** 태그 목록을 그룹에 배치한다. 미분류 태그는 "기타"로 묶는다. */
 export function groupTags(allTags: string[]): TagGroup[] {
   const known = new Set(TAG_GROUPS.flatMap((group) => group.tags));
 
