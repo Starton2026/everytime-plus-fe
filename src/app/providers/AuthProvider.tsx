@@ -1,14 +1,18 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import type { ReactNode } from "react";
-import { getMe, login as requestLogin, signup as requestSignup } from "@/features/auth/api/authApi";
+import {
+  getMe,
+  login as requestLogin,
+  signup as requestSignup,
+} from "@/features/auth/api/authApi";
 import { AuthContext } from "@/features/auth/model/authContext";
 import type { AuthStatus } from "@/features/auth/model/authContext";
 import {
-  clearAccessToken,
+  clearSession,
   getAccessToken,
   setAccessToken,
-} from "@/shared/api/authToken";
-import type { LoginRequest, SignupRequest, User } from "@/shared/types/auth";
+} from "@/shared/api/authSession";
+import type { AuthResponse, LoginRequest, SignupRequest, User } from "@/shared/types/auth";
 
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<AuthStatus>("loading");
@@ -31,7 +35,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         setStatus("authenticated");
       } catch {
         if (cancelled) return;
-        clearAccessToken();
+        clearSession();
         setUser(null);
         setStatus("unauthenticated");
       }
@@ -44,22 +48,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, []);
 
-  const login = useCallback(async (body: LoginRequest) => {
-    const response = await requestLogin(body);
+  /**
+   * 로그인·회원가입 응답에는 access_token과 nickname만 있고 id가 없다.
+   * 사용자 정보를 한 형태로 다루기 위해 토큰 저장 후 /auth/me로 한 번 더 조회한다.
+   */
+  const applyAuthResponse = useCallback(async (response: AuthResponse) => {
     setAccessToken(response.accessToken);
-    setUser(response.user);
+
+    const me = await getMe();
+    setUser(me);
     setStatus("authenticated");
   }, []);
 
-  const signup = useCallback(async (body: SignupRequest) => {
-    const response = await requestSignup(body);
-    setAccessToken(response.accessToken);
-    setUser(response.user);
-    setStatus("authenticated");
-  }, []);
+  const login = useCallback(
+    async (body: LoginRequest) => {
+      await applyAuthResponse(await requestLogin(body));
+    },
+    [applyAuthResponse],
+  );
+
+  const signup = useCallback(
+    async (body: SignupRequest) => {
+      await applyAuthResponse(await requestSignup(body));
+    },
+    [applyAuthResponse],
+  );
 
   const logout = useCallback(() => {
-    clearAccessToken();
+    clearSession();
     setUser(null);
     setStatus("unauthenticated");
   }, []);

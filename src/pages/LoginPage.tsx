@@ -3,7 +3,6 @@ import type { FormEvent } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import { AuthLayout } from "@/features/auth/components/AuthLayout";
 import { useAuth } from "@/features/auth/hooks/useAuth";
-import { DEMO_ACCOUNT } from "@/mocks/data/users";
 import { toErrorMessage } from "@/shared/api/apiError";
 import { Button } from "@/shared/components/Button";
 import { TextField } from "@/shared/components/TextField";
@@ -41,12 +40,6 @@ export function LoginPage() {
     } finally {
       setSubmitting(false);
     }
-  };
-
-  const fillDemoAccount = () => {
-    setUsername(DEMO_ACCOUNT.username);
-    setPassword(DEMO_ACCOUNT.password);
-    setError(null);
   };
 
   return (
@@ -97,23 +90,6 @@ export function LoginPage() {
         </Button>
       </form>
 
-      <div className="mt-5 rounded-xl bg-surface-muted p-3.5">
-        <p className="text-[12px] leading-relaxed text-ink-500">
-          백엔드 연동 전이라 예시 데이터로 동작합니다.
-          <br />
-          데모 계정{" "}
-          <b className="text-ink-700">
-            {DEMO_ACCOUNT.username} / {DEMO_ACCOUNT.password}
-          </b>
-        </p>
-        <button
-          type="button"
-          onClick={fillDemoAccount}
-          className="mt-2 text-[12px] font-semibold text-brand-600 hover:underline"
-        >
-          데모 계정으로 채우기
-        </button>
-      </div>
     </AuthLayout>
   );
 }
