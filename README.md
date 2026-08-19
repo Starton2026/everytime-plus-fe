@@ -19,6 +19,12 @@
 npm install
 ```
 
+`.env.example`을 복사해 환경 변수를 설정합니다. (`.env.local`은 저장소에 올라가지 않습니다)
+
+```bash
+cp .env.example .env.local
+```
+
 ```bash
 npm run dev
 ```
@@ -118,11 +124,21 @@ import { Button } from '@/shared/components/Button'
 uvicorn main:app --reload
 ```
 
-| 항목 | 값 |
+### 환경 변수
+
+| 파일 | 용도 | 커밋 |
+| --- | --- | --- |
+| `.env.example` | 필요한 키를 적어둔 템플릿 | O |
+| `.env.local` | 실제로 쓰는 값 | X (`.gitignore`) |
+
+| 변수 | 설명 |
 | --- | --- |
-| 기본 주소 | `http://localhost:8000` |
-| 변경 방법 | `.env`에 `VITE_API_BASE_URL=...` |
-| Swagger | http://localhost:8000/docs |
+| `VITE_API_BASE_URL` | 백엔드 API 주소. 끝에 `/`를 붙이지 않습니다 |
+
+주소를 바꾸려면 `.env.local`의 값만 고치면 됩니다. 값이 없으면 `http://localhost:8000`을 씁니다.
+
+> Vite는 개발 서버가 뜰 때 환경 변수를 읽습니다. `.env.local`을 고친 뒤에는
+> `npm run dev`를 다시 실행해야 반영됩니다.
 
 - 서버 CORS는 `localhost`와 `127.0.0.1`의 3000·5173 포트를 허용합니다. 다른 주소로 띄우려면
   백엔드 `main.py`의 `allow_origins`에 추가해야 합니다.
@@ -161,5 +177,6 @@ SPA이므로 모든 경로를 `index.html`로 돌려주는 rewrite 설정이 필
 (Vercel `rewrites`, Netlify `_redirects`, Nginx `try_files`)
 설정하지 않으면 `/boards/1/posts/3` 같은 주소로 직접 접속했을 때 404가 납니다.
 
-배포 시에는 `VITE_API_BASE_URL`을 배포된 백엔드 주소로 지정하고, 백엔드 `main.py`의 CORS
+API 주소 기본값이 `http://localhost:8000`이라 그대로 올리면 동작하지 않습니다.
+배포 환경의 `VITE_API_BASE_URL`을 배포된 백엔드 주소로 지정하고, 백엔드 `main.py`의 CORS
 `allow_origins`에도 프론트 배포 주소를 추가해야 합니다.

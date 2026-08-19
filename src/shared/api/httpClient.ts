@@ -3,8 +3,10 @@ import type { ApiErrorDetailItem } from "@/shared/api/apiError";
 import { getAccessToken } from "@/shared/api/authSession";
 
 /**
- * 백엔드 주소. 기본값은 로컬 FastAPI 서버(uvicorn main:app --reload)다.
- * 배포 시 .env의 VITE_API_BASE_URL로 덮어쓴다.
+ * 백엔드 주소.
+ *
+ * 저장소에 올리지 않는 .env.local의 VITE_API_BASE_URL에서 읽는다.
+ * 파일이 없으면 로컬 FastAPI 서버(uvicorn main:app --reload)를 기본값으로 쓴다.
  */
 export const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
